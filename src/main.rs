@@ -20,18 +20,28 @@ struct Page {
     content: String,
 }
 #[derive(Debug)]
-struct UserError {
+struct AppError {
+    kind: AppErrorKind,
     msg: String, 
 }
-impl Display for UserError {
+#[derive(Debug)]
+enum AppErrorKind {
+    Other
+}
+impl Display for AppError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}: {}", "User Error".red(), self.msg) //TODO:给 `User Error` 增加颜色
+        let err=match self.kind{
+            AppErrorKind::Other=>"Other",
+            _=>"App"
+        };
+        let err_text=format!("{} Error:",err).red();
+        write!(f, "{} {}", err_text, self.msg) 
     }
 }
-impl std::error::Error for UserError {}
-impl UserError {
-    fn new(msg: String) -> Self {
-        UserError { msg }
+impl std::error::Error for AppError {}
+impl AppError {
+    fn new(kind:AppErrorKind,msg: String) -> Self {
+        AppError { kind,msg }
     }
 }
 
@@ -122,7 +132,7 @@ fn main() {
     /*let ten_millis = time::Duration::from_millis(1);
     let now = time::Instant::now();*/
     /*std::panic::set_hook(Box::new(|i| {
-        eprintln!("{:#?}", i) //FIXME:这里可以只输出错误信息，不必输出其它
+        eprintln!("{:#?}", i) 
     }));*/
     let mut m = command!()
         .subcommands([
