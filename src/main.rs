@@ -47,7 +47,15 @@ impl AppError {
 
 fn parse_config() {}
 fn new(m: Option<&str>) -> Result<()> {
-    if let Some(post_name) = m {}
+    if let Some(post_name) = m {
+        let fname=post_name.replace(" ", "-").to_ascii_lowercase()+".md";
+        let mut f=fs::File::create("./posts/".to_owned()+&fname)?;
+        if let Ok(template)=fs::read_to_string("./posts/_index.md"){
+            let t=template.replace("{{title}}", post_name);
+            f.write_all(t.as_bytes());
+        }
+        //f.write_all()
+    }
     Ok(())
 }
 fn init() -> Result<()> {
@@ -140,7 +148,7 @@ fn main() {
             Command::new("build").about(""),
             Command::new("new")
                 .about("")
-                .arg(Arg::new("post_name"))
+                .arg(Arg::new("post_name").required(true))
                 .arg(
                     Arg::new("draft")
                         .short('d')
