@@ -7,7 +7,7 @@ use clap::*;
 use anyhow::Result;
 use colored::Colorize;
 use std::fmt::Display;
-use std::{fs, io::Write, thread, time};
+use std::{fs, io::Write, thread, time,process};
 use upon::*;
 
 const DEBUG: bool = false;
@@ -76,7 +76,7 @@ fn init() -> Result<()> {
 fn build() -> Result<()> {
     let pages = parse();
     dbg!(&pages);
-    let pages = pages.unwrap();
+    let pages = pages?;
     for page in pages {
         //let page=page.unwrap();
         dbg!(&page);
@@ -144,7 +144,9 @@ fn main() {
     }));*/
     let mut m = command!()
         .subcommands([
-            Command::new("init").about(""),
+            Command::new("init").about("").arg(
+                Arg::new("name")
+            ),
             Command::new("build").about(""),
             Command::new("new")
                 .about("")
@@ -168,7 +170,7 @@ fn main() {
         None=>{println!("{}",h);Ok(())}
         _ => Ok(()),
     }
-    .unwrap_or_else(|e| eprintln!("{}", e));
+    .unwrap_or_else(|e| {eprintln!("{}", e);process::exit(1)});
     /*let bar = ProgressBar::new(1000);
     bar.set_style(
         ProgressStyle::with_template(
