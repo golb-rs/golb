@@ -6,8 +6,9 @@ use clap::*;
 //use indicatif::*;
 use anyhow::Result;
 use colored::Colorize;
+use markdown::file_to_html;
 use std::fmt::Display;
-use std::{fs, io::Write, thread, time,process};
+use std::{fs, io::Write, process, thread, time};
 use upon::*;
 
 const DEBUG: bool = false;
@@ -22,55 +23,61 @@ struct Page {
 #[derive(Debug)]
 struct AppError {
     kind: AppErrorKind,
-    msg: String, 
+    msg: String,
 }
 #[derive(Debug)]
 enum AppErrorKind {
-    Other
+    Other,
 }
 impl Display for AppError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let err=match self.kind{
-            AppErrorKind::Other=>"Other",
-            _=>"App"
+        let err = match self.kind {
+            AppErrorKind::Other => "Other",
+            _ => "App",
         };
-        let err_text=format!("{} Error:",err).red();
-        write!(f, "{} {}", err_text, self.msg) 
+        let err_text = format!("{} Error:", err).red();
+        write!(f, "{} {}", err_text, self.msg)
     }
 }
 impl std::error::Error for AppError {}
 impl AppError {
-    fn new(kind:AppErrorKind,msg: String) -> Self {
-        AppError { kind,msg }
+    fn new(kind: AppErrorKind, msg: String) -> Self {
+        AppError { kind, msg }
     }
 }
 
 fn parse_config() {}
 fn new(m: Option<&str>) -> Result<()> {
     if let Some(post_name) = m {
-        let fname=post_name.replace(" ", "-").to_ascii_lowercase()+".md";
-        let mut f=fs::File::create("./posts/".to_owned()+&fname)?;
-        if let Ok(template)=fs::read_to_string("./posts/_index.md"){
-            let t=template.replace("{{title}}", post_name);
+        let fname = post_name.replace(" ", "-").to_ascii_lowercase() + ".md";
+        let mut f = fs::File::create("./posts/".to_owned() + &fname)?;
+        if let Ok(template) = fs::read_to_string("./posts/_index.md") {
+            let t = template.replace("{{title}}", post_name);
             f.write_all(t.as_bytes());
         }
         //f.write_all()
     }
     Ok(())
 }
-fn init() -> Result<()> {
-    let mut dir_builder = fs::DirBuilder::new();
-    dir_builder.recursive(true);
-    if !DEBUG {
-        for i in ["posts", "themes", "build"] {
-            dir_builder.create(i);
-            if i == "posts" {
-                fs::File::create("posts/hello_world.md")?.write_all(MD_STR);
+fn init(name: Option<&str>) -> Result<()> {
+    let mut dir=String::from("./");
+    if let Some(name) = name {
+        fs::create_dir(name)?;
+        dir=format!("./{}/", name);
+    } else {
+        let mut dir_builder = fs::DirBuilder::new();
+        dir_builder.recursive(true);
+        if !DEBUG {
+            for i in ["posts", "themes", "build"] {
+                dir_builder.create(dir.clone()+i);
+                if i == "posts" {
+                    fs::File::create(dir.clone()+"posts/hello_world.md")?.write_all(MD_STR);
+                }
             }
-        }
-        let mut f = fs::File::create("./golb.config.toml")?;
-        f.write_all(CONFIG_STR);
-    };
+            let mut f = fs::File::create(dir+"./golb.config.toml")?;
+            f.write_all(CONFIG_STR);
+        };
+    }
     Ok(())
 }
 fn build() -> Result<()> {
@@ -93,12 +100,15 @@ fn parse() -> Result<Vec<Page>> {
 
     let mut has_base = false;
     let base = fs::read_to_string(theme_dir.clone() + "/base.html")?;
+    let post = fs::read_to_string(theme_dir.clone() + "/post.html")?;
     let base = engine.compile(&base)?;
 
     let mut pages = vec![];
     let mut parsed_pages: Vec<Page> = vec![];
 
     let templates = fs::read_dir(theme_dir)?;
+    let posts = fs::read_dir("./posts/")?;
+    //TODO:
     for page in templates {
         let page = page?;
         if page.file_name() == "base.html" {
@@ -125,6 +135,10 @@ fn parse() -> Result<Vec<Page>> {
             //TODO:让模板可导入组件
         }
     }
+    for post in posts {
+        let p = post?;
+        let html = file_to_html(&p.path());
+    }
     //let template = engine.get_template("index.html").unwrap();
     //let result = template.render(upon::value! { user: { name: "John Smith" }})?;
 
@@ -140,37 +154,38 @@ fn main() {
     /*let ten_millis = time::Duration::from_millis(1);
     let now = time::Instant::now();*/
     /*std::panic::set_hook(Box::new(|i| {
-        eprintln!("{:#?}", i) 
+        eprintln!("{:#?}", i)
     }));*/
-    let mut m = command!()
-        .subcommands([
-            Command::new("init").about("").arg(
-                Arg::new("name")
-            ),
-            Command::new("build").about(""),
-            Command::new("new")
-                .about("")
-                .arg(Arg::new("post_name").required(true))
-                .arg(
-                    Arg::new("draft")
-                        .short('d')
-                        .long("draft")
-                        .action(ArgAction::SetTrue),
-                ),
-            Command::new("server").about(""),
-        ]);
-    let h=m.render_help();
-    let m=m.get_matches();
-    
+    let mut m = command!().subcommands([
+        Command::new("init")
+            .about("初始化一个博客目录")
+            .arg(Arg::new("dir_name")),
+        Command::new("build").about("构建静态页面"),
+        Command::new("new")
+            .about("创建一篇文章")
+            .arg(Arg::new("post_name").required(true)),
+        Command::new("server").about("运行一个静态服务器"),
+    ]);
+    let h = m.render_help();
+    let m = m.get_matches();
+
     let err = match m.subcommand() {
-        Some(("init", _)) => init(),
+        Some(("init", m)) => init(m.get_one::<&str>("dir_name").copied()),/*FIXME:`get_one` 方法有问题：
+        'Mismatch between definition and access of `post_name`. Could not downcast to TypeId { t: 13952935171328998337 }, need to downcast to TypeId { t: 8862236669128975208 }
+'*/
         Some(("build", _)) => build(),
         Some(("server", _)) => server(),
-        Some(("new", m)) => new(m.get_one::<String>("post_name").map(|x| x.as_str())),
-        None=>{println!("{}",h);Ok(())}
+        Some(("new", m)) => new(m.get_one::<&str>("post_name").copied()),
+        None => {
+            println!("{}", h);
+            Ok(())
+        }
         _ => Ok(()),
     }
-    .unwrap_or_else(|e| {eprintln!("{}", e);process::exit(1)});
+    .unwrap_or_else(|e| {
+        eprintln!("{}", e);
+        process::exit(1)
+    });
     /*let bar = ProgressBar::new(1000);
     bar.set_style(
         ProgressStyle::with_template(
