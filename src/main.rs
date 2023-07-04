@@ -47,37 +47,37 @@ impl AppError {
 }
 
 fn parse_config() {}
-fn new(m: Option<&str>) -> Result<()> {
-    if let Some(post_name) = m {
-        let fname = post_name.replace(" ", "-").to_ascii_lowercase() + ".md";
-        let mut f = fs::File::create("./posts/".to_owned() + &fname)?;
-        if let Ok(template) = fs::read_to_string("./posts/_index.md") {
-            let t = template.replace("{{title}}", post_name);
-            f.write_all(t.as_bytes());
-        }
-        //f.write_all()
+fn new(post_name: &str) -> Result<()> {
+    //if let Some(post_name) = m {
+    let fname = post_name.replace(" ", "-").to_ascii_lowercase() + ".md";
+    let mut f = fs::File::create("./posts/".to_owned() + &fname)?;
+    if let Ok(template) = fs::read_to_string("./posts/_index.md") {
+        let t = template.replace("{{title}}", post_name);
+        f.write_all(t.as_bytes());
     }
+    //f.write_all()
+    //}
     Ok(())
 }
 fn init(name: Option<&str>) -> Result<()> {
-    let mut dir=String::from("./");
+    let mut dir = String::from("./");
     if let Some(name) = name {
-        fs::create_dir(name)?;
-        dir=format!("./{}/", name);
-    } else {
-        let mut dir_builder = fs::DirBuilder::new();
-        dir_builder.recursive(true);
-        if !DEBUG {
-            for i in ["posts", "themes", "build"] {
-                dir_builder.create(dir.clone()+i);
-                if i == "posts" {
-                    fs::File::create(dir.clone()+"posts/hello_world.md")?.write_all(MD_STR);
-                }
-            }
-            let mut f = fs::File::create(dir+"./golb.config.toml")?;
-            f.write_all(CONFIG_STR);
-        };
+        fs::create_dir_all(&name)?;
+        dir = format!("./{}/", name);
     }
+    let mut dir_builder = fs::DirBuilder::new();
+    dir_builder.recursive(true);
+    if !DEBUG {
+        for i in ["posts", "themes", "build"] {
+            dir_builder.create(dir.clone() + i);
+            if i == "posts" {
+                fs::File::create(dir.clone() + "posts/hello_world.md")?.write_all(MD_STR);
+            }
+        }
+        let mut f = fs::File::create(dir + "./golb.config.toml")?;
+        f.write_all(CONFIG_STR);
+    };
+
     Ok(())
 }
 fn build() -> Result<()> {
@@ -170,12 +170,10 @@ fn main() {
     let m = m.get_matches();
 
     let err = match m.subcommand() {
-        Some(("init", m)) => init(m.get_one::<&str>("dir_name").copied()),/*FIXME:`get_one` 方法有问题：
-        'Mismatch between definition and access of `post_name`. Could not downcast to TypeId { t: 13952935171328998337 }, need to downcast to TypeId { t: 8862236669128975208 }
-'*/
+        Some(("init", m)) => init(m.get_one::<String>("dir_name").map(|x| x.as_str())),
         Some(("build", _)) => build(),
         Some(("server", _)) => server(),
-        Some(("new", m)) => new(m.get_one::<&str>("post_name").copied()),
+        Some(("new", m)) => new(m.get_one::<String>("post_name").unwrap()),
         None => {
             println!("{}", h);
             Ok(())
