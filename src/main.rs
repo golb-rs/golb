@@ -9,7 +9,7 @@ use anyhow::Result;
 use markdown::file_to_html;
 //use std::fmt::Display;
 use std::{fs, io::Write, process, thread, time};
-use upon::*;
+//use upon; 有用到 upon，但没必要将它引入作用域；另见 https://rust-lang.github.io/rust-clippy/master/index.html#/single_component_path_imports
 
 const DEBUG: bool = false;
 const CONFIG_STR: &[u8] = include_str!("./config_template.toml").as_bytes();
