@@ -156,7 +156,7 @@ fn main() {
     /*std::panic::set_hook(Box::new(|i| {
         eprintln!("{:#?}", i)
     }));*/
-    let mut m = command!().subcommands([
+    let mut command = command!().subcommands([
         Command::new("init")
             .about("初始化一个博客目录")
             .arg(Arg::new("dir_name")),
@@ -166,16 +166,16 @@ fn main() {
             .arg(Arg::new("post_name").required(true)),
         Command::new("server").about("运行一个静态服务器"),
     ]);
-    let h = m.render_help();
-    let m = m.get_matches();
+    let help_text = command.render_help();
+    let matches = command.get_matches();
 
-    match m.subcommand() {
+    match matches.subcommand() {
         Some(("init", m)) => init(m.get_one::<String>("dir_name").map(|x| x.as_str())),
         Some(("build", _)) => build(),
         Some(("server", _)) => server(),
         Some(("new", m)) => new(m.get_one::<String>("post_name").unwrap()),
         None => {
-            println!("{}", h);
+            println!("{}", help_text);
             Ok(())
         }
         _ => Ok(()),
