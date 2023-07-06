@@ -5,9 +5,9 @@
 use clap::*;
 //use indicatif::*;
 use anyhow::Result;
-use colored::Colorize;
+//use colored::Colorize;
 use markdown::file_to_html;
-use std::fmt::Display;
+//use std::fmt::Display;
 use std::{fs, io::Write, process, thread, time};
 use upon::*;
 
@@ -20,7 +20,7 @@ struct Page {
     name: String,
     content: String,
 }
-#[derive(Debug)]
+/*#[derive(Debug)]
 struct AppError {
     kind: AppErrorKind,
     msg: String,
@@ -44,16 +44,16 @@ impl AppError {
     fn new(kind: AppErrorKind, msg: String) -> Self {
         AppError { kind, msg }
     }
-}
-
+}*///FIXME:`AppError` 目前好像没用？先注释掉
+#[warn(dead_code)]
 fn parse_config() {}
 fn new(post_name: &str) -> Result<()> {
     //if let Some(post_name) = m {
-    let fname = post_name.replace(" ", "-").to_ascii_lowercase() + ".md";
+    let fname = post_name.replace(' ', "-").to_ascii_lowercase() + ".md";
     let mut f = fs::File::create("./posts/".to_owned() + &fname)?;
     if let Ok(template) = fs::read_to_string("./posts/_index.md") {
         let t = template.replace("{{title}}", post_name);
-        f.write_all(t.as_bytes());
+        f.write_all(t.as_bytes())?;
     }
     //f.write_all()
     //}
@@ -62,20 +62,20 @@ fn new(post_name: &str) -> Result<()> {
 fn init(name: Option<&str>) -> Result<()> {
     let mut dir = String::from("./");
     if let Some(name) = name {
-        fs::create_dir_all(&name)?;
+        fs::create_dir_all(name)?;
         dir = format!("./{}/", name);
     }
     let mut dir_builder = fs::DirBuilder::new();
     dir_builder.recursive(true);
     if !DEBUG {
         for i in ["posts", "themes", "build"] {
-            dir_builder.create(dir.clone() + i);
+            dir_builder.create(dir.clone() + i)?;
             if i == "posts" {
-                fs::File::create(dir.clone() + "posts/hello_world.md")?.write_all(MD_STR);
+                fs::File::create(dir.clone() + "posts/hello_world.md")?.write_all(MD_STR)?;
             }
         }
         let mut f = fs::File::create(dir + "./golb.config.toml")?;
-        f.write_all(CONFIG_STR);
+        f.write_all(CONFIG_STR)?;
     };
 
     Ok(())
@@ -169,7 +169,7 @@ fn main() {
     let h = m.render_help();
     let m = m.get_matches();
 
-    let err = match m.subcommand() {
+    match m.subcommand() {
         Some(("init", m)) => init(m.get_one::<String>("dir_name").map(|x| x.as_str())),
         Some(("build", _)) => build(),
         Some(("server", _)) => server(),
