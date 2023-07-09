@@ -8,7 +8,7 @@ use anyhow::Result;
 //use colored::Colorize;
 use markdown::file_to_html;
 //use std::fmt::Display;
-use std::{fs, io::Write, process, thread, time};
+use std::{fs, io::Write, process};
 //use upon; 有用到 upon，但没必要将它引入作用域；另见 https://rust-lang.github.io/rust-clippy/master/index.html#/single_component_path_imports
 
 const DEBUG: bool = false;
@@ -93,14 +93,14 @@ fn build() -> Result<()> {
     Ok(())
 }
 fn parse() -> Result<Vec<Page>> {
-    let mut engine = upon::Engine::new();
+    let engine = upon::Engine::new();
 
     //dbg!(&engine);
     let theme_dir = "./themes/".to_owned() + THEME;
 
     let mut has_base = false;
     let base = fs::read_to_string(theme_dir.clone() + "/base.html")?;
-    let post = fs::read_to_string(theme_dir.clone() + "/post.html")?;
+    let _post = fs::read_to_string(theme_dir.clone() + "/post.html")?;
     let base = engine.compile(&base)?;
 
     let mut pages = vec![];
@@ -137,7 +137,7 @@ fn parse() -> Result<Vec<Page>> {
     }
     for post in posts {
         let p = post?;
-        let html = file_to_html(&p.path());
+        let _html = file_to_html(&p.path());
     }
     //let template = engine.get_template("index.html").unwrap();
     //let result = template.render(upon::value! { user: { name: "John Smith" }})?;
@@ -164,7 +164,10 @@ fn main() {
         Command::new("new")
             .about("创建一篇文章")
             .arg(Arg::new("post_name").required(true)),
-        Command::new("server").about("运行一个静态服务器"),
+        Command::new("server")
+            .alias("serve")
+            .about("Serve the site.")
+            .arg(Arg::new("draft").short('d').long("draft").action(ArgAction::SetTrue)),
     ]);
     let help_text = command.render_help();
     let matches = command.get_matches();
