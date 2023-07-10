@@ -103,13 +103,14 @@ fn parse() -> Result<Vec<Page>> {
     let _post = fs::read_to_string(theme_dir.clone() + "/post.html")?;
     let base = engine.compile(&base)?;
 
-    let mut pages = vec![];
+    let mut pages: Vec<Page> = vec![];
     let mut parsed_pages: Vec<Page> = vec![];
 
-    let templates = fs::read_dir(theme_dir)?;
+    let templates = fs::read_dir(theme_dir.clone())?;
     let posts = fs::read_dir("./posts/")?;
     //TODO:
-    for page in templates {
+    //FIXME:page 先不管
+    /*for page in templates {
         let page = page?;
         if page.file_name() == "base.html" {
             has_base = true;
@@ -134,10 +135,25 @@ fn parse() -> Result<Vec<Page>> {
             })
             //TODO:让模板可导入组件
         }
-    }
+    }*/
     for post in posts {
         let p = post?;
-        let _html = file_to_html(&p.path());
+        if p.file_name()!="_index.md" {
+        let html = file_to_html(&p.path())?;
+        let post_template = engine
+            .compile(fs::read_to_string(theme_dir.clone() + "/post.html")?.as_str())?
+            .render(upon::value! {content: html})?;
+        let name = p
+            .file_name()
+            .to_str()
+            .unwrap()
+            .to_string()
+            .replacen(".md", ".html", 1);
+        dbg!(&name);
+        parsed_pages.push(Page {
+            name,
+            content: post_template,
+        })}
     }
     //let template = engine.get_template("index.html").unwrap();
     //let result = template.render(upon::value! { user: { name: "John Smith" }})?;
@@ -167,7 +183,12 @@ fn main() {
         Command::new("server")
             .alias("serve")
             .about("Serve the site.")
-            .arg(Arg::new("draft").short('d').long("draft").action(ArgAction::SetTrue)),
+            .arg(
+                Arg::new("draft")
+                    .short('d')
+                    .long("draft")
+                    .action(ArgAction::SetTrue),
+            ),
     ]);
     let help_text = command.render_help();
     let matches = command.get_matches();
