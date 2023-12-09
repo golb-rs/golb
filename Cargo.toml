@@ -11,11 +11,16 @@ authors = ["XYZscratcher <xyzscer@outlook.com>"]
 
 [dependencies]
 anyhow = "1.0.71"
-#actix-files = "0.6.2"
-#actix-web = "4.3.1"
+axum = "0.6.19"
+axum_static = "1.2.2"
+actix-files = "0.6.2"
+actix-web = "4"
 clap = { version = "4.3.3", features = ["derive", "cargo"] }
 colored = "2.0.0"
 dialoguer = "0.10.4"
+file-serve = "0.2.4"
+human-panic = "1.1.5"
 indicatif = "0.17.5"
 markdown = "0.3.0"
+tokio = { version = "1.29.1", features = ["full"] }
 upon = "0.6.0"

@@ -1,13 +1,20 @@
 //TODO:添加 `lib.rs` ，将项目的 `main.rs` 中的一些逻辑分离到此中
-
+use axum::{
+    routing::{get, post},
+    http::StatusCode,
+    response::IntoResponse,
+    Json, Router,
+};
+use std::net::SocketAddr;
 //use actix_files::Files;
 //use actix_web::App;
 use clap::*;
 //use indicatif::*;
 use anyhow::Result;
-//use colored::Colorize;
-use markdown::file_to_html;
-//use std::fmt::Display;
+use colored::Colorize;
+use human_panic::setup_panic;
+use markdown::to_html;
+use std::fmt::Display;
 use std::{fs, io::Write, process};
 //use upon; 有用到 upon，但没必要将它引入作用域；另见 https://rust-lang.github.io/rust-clippy/master/index.html#/single_component_path_imports
 
@@ -20,31 +27,26 @@ struct Page {
     name: String,
     content: String,
 }
-/*#[derive(Debug)]
+
+#[derive(Debug)]
 struct AppError {
-    kind: AppErrorKind,
+    kind: String,
     msg: String,
 }
-#[derive(Debug)]
-enum AppErrorKind {
-    Other,
-}
+
 impl Display for AppError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let err = match self.kind {
-            AppErrorKind::Other => "Other",
-            _ => "App",
-        };
+        let err = &self.kind;
         let err_text = format!("{} Error:", err).red();
         write!(f, "{} {}", err_text, self.msg)
     }
 }
 impl std::error::Error for AppError {}
 impl AppError {
-    fn new(kind: AppErrorKind, msg: String) -> Self {
+    fn new(kind: String, msg: String) -> Self {
         AppError { kind, msg }
     }
-}*///FIXME:`AppError` 目前好像没用？先注释掉
+} //FIXME:`AppError` 目前好像没用？先注释掉
 #[warn(dead_code)]
 fn parse_config() {}
 fn new(post_name: &str) -> Result<()> {
@@ -138,22 +140,49 @@ fn parse() -> Result<Vec<Page>> {
     }*/
     for post in posts {
         let p = post?;
-        if p.file_name()!="_index.md" {
-        let html = file_to_html(&p.path())?;
-        let post_template = engine
-            .compile(fs::read_to_string(theme_dir.clone() + "/post.html")?.as_str())?
-            .render(upon::value! {content: html})?;
-        let name = p
-            .file_name()
-            .to_str()
-            .unwrap()
-            .to_string()
-            .replacen(".md", ".html", 1);
-        dbg!(&name);
-        parsed_pages.push(Page {
-            name,
-            content: post_template,
-        })}
+        if p.file_name() != "_index.md" {
+            let file = fs::read_to_string(&p.path())?;
+            let mut flag = file.lines().collect::<Vec<_>>()[0];
+            enum FrontMatterType {
+                YAML,
+                TOML,
+                None,
+            }
+            let mut front_matter_type = FrontMatterType::None; //TODO:解析 Front matter
+            let [front_matter, other_content] = {
+                //FIXME:Ahhhhhhhhhhhhhhhhhhhh!
+                //let flag = flag.unwrap();
+                let fmtype = file.split(flag);
+                if flag == "---" {
+                    front_matter_type = FrontMatterType::YAML;
+                } else if flag == "+++" {
+                    front_matter_type = FrontMatterType::TOML;
+                } else {
+                }
+                let r = &fmtype.collect::<Vec<_>>()[..];
+                dbg!(&r);
+                if r.len() <= 2 {
+                    [r[1], ""]
+                } else {
+                    [r[1], r[1]]
+                }
+            };
+            let html = to_html(other_content);
+            let post_template = engine
+                .compile(fs::read_to_string(theme_dir.clone() + "/post.html")?.as_str())?
+                .render(upon::value! {content: html})?;
+            let name = p
+                .file_name()
+                .to_str()
+                .unwrap()
+                .to_string()
+                .replacen(".md", ".html", 1);
+            dbg!(&name);
+            parsed_pages.push(Page {
+                name,
+                content: post_template,
+            })
+        }
     }
     //let template = engine.get_template("index.html").unwrap();
     //let result = template.render(upon::value! { user: { name: "John Smith" }})?;
@@ -161,12 +190,31 @@ fn parse() -> Result<Vec<Page>> {
     dbg!(&parsed_pages);
     Ok(parsed_pages)
 }
-fn server() -> Result<()> {
-    //TODO:运行一个静态服务器
-    //let app = App::new().service(Files::new("/build", ".").prefer_utf8(true));
+async fn server() -> Result<()> {
+    /*let path = std::env::current_dir()?.join("build/");
+    let server = file_serve::ServerBuilder::new(&path).hostname("localhost").port(4096).build();
+    println!("Serving {}", path.display());
+    println!("See http://{}", server.addr());
+    println!("Hit CTRL-C to stop");
+    server.serve()?;*/
+    /*async fn index()->&'static str{
+        "hello"
+    }*/
+    let app = axum_static::static_router("build/");
+    let addr = SocketAddr::from(([127, 0, 0, 1], 3000));
+    //tracing::debug!("listening on {}", addr);
+    println!("http://{addr}");
+    axum::Server::bind(&addr)
+        .serve(app.into_make_service())
+        .await
+        .unwrap();
     Ok(())
+    //todo!()
+    //Err(AppError::new("No".to_string(), "test".to_string()).into())
 }
-fn main() {
+#[tokio::main]
+async fn main() {
+    setup_panic!();
     /*let ten_millis = time::Duration::from_millis(1);
     let now = time::Instant::now();*/
     /*std::panic::set_hook(Box::new(|i| {
@@ -196,7 +244,7 @@ fn main() {
     match matches.subcommand() {
         Some(("init", m)) => init(m.get_one::<String>("dir_name").map(|x| x.as_str())),
         Some(("build", _)) => build(),
-        Some(("server", _)) => server(),
+        Some(("server", _)) => server().await,
         Some(("new", m)) => new(m.get_one::<String>("post_name").unwrap()),
         None => {
             println!("{}", help_text);
@@ -204,10 +252,11 @@ fn main() {
         }
         _ => Ok(()),
     }
-    .unwrap_or_else(|e| {
+    /*.unwrap_or_else(|e| {
         eprintln!("{}", e);
         process::exit(1)
-    });
+    }); */
+    .unwrap();
     /*let bar = ProgressBar::new(1000);
     bar.set_style(
         ProgressStyle::with_template(
